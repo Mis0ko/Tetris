@@ -10,12 +10,11 @@ WindowSurface::WindowSurface() : Surface()
     cout << "winSurface created" << endl;
 
     pauseRect = new SDL_Rect();
-    pauseRect->h = WIN_W / 3;
-    pauseRect->w = WIN_H / 2;
-    pauseRect->y = WIN_W / 2 - pauseRect->h / 2;
+    pauseRect->h = WIN_H / 3;
+    pauseRect->w = WIN_W / 2;
+    pauseRect->y = WIN_H / 2 - pauseRect->h / 2;
     pauseRect->x = WIN_W / 2 - pauseRect->w / 2;
 
-    //Affichage du mode menu
     police = TTF_OpenFont("src/GUNSHIP2.TTF", 20);
     colorPolice = {74, 69, 68};
     positionMenuInfos = new SDL_Rect();
@@ -28,32 +27,46 @@ WindowSurface::WindowSurface() : Surface()
     }
 }
 
+SDL_Window* WindowSurface::ResizeWindow(SDL_Window* win)
+{
+    int win_w;
+    int win_h;
+    int win_x;
+    int win_y;
+
+    SDL_GetWindowSize(win, &win_w, &win_h);
+    SDL_SetWindowSize(win, 2 * win_w, win_h);
+    SDL_GetWindowPosition(win, &win_x, &win_y);
+    SDL_SetWindowPosition(win, win_x / 4, win_y);
+
+    SDL_DestroyRenderer(rend);
+    rend = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    return win;
+}
+
+
 SDL_Window *WindowSurface::get_w()
 {
     return this->pWindow;
 }
 
-void WindowSurface::backgroundRender(SDL_Surface *spriteBg)
+SDL_Renderer* WindowSurface::get_rend()
 {
-    SDL_Rect srcBg = {0, 128, 96, 128};
-    Bg = SDL_CreateTextureFromSurface(rend, spriteBg); // récupère la surface du sprite en tant que texture
-    if (Bg == nullptr)
-        printf("error creation texture\n");
-
-    SDL_Rect dest = {0, 0, 128, 96};
-    for (int i = 0; i < get_surf()->h; i += 128)
-    {
-        for (int j = 0; j < get_surf()->w; j += 96)
-        {
-            dest.x = i;
-            dest.y = j;
-            // copie depuis la planche de sprite vers le render
-            SDL_RenderCopy(rend, Bg, &srcBg, &dest);
-        }
-    }
+    return this->rend;
 }
 
-void WindowSurface::render(SDL_Surface *spriteBg, Board *board, bool isPaused, bool menuMode)
+void WindowSurface::backgroundRender(SDL_Surface *spriteBg)
+{
+    SDL_Rect srcBg = { 0, 128, 96, 128 };
+    Bg = SDL_CreateTextureFromSurface(rend, spriteBg);
+    if (Bg == nullptr)
+        printf("error creation texture\n");
+    SDL_RenderCopy(rend, Bg, &srcBg, NULL);
+    SDL_SetRenderDrawColor(rend, 213, 213, 213, 255);
+    SDL_RenderFillRect(rend, NULL);
+}
+
+void WindowSurface::render(SDL_Surface *spriteBg, Board * board1, Board * board2, bool isPaused, bool menuMode)
 {
     if (menuMode)
     {
@@ -62,17 +75,25 @@ void WindowSurface::render(SDL_Surface *spriteBg, Board *board, bool isPaused, b
         return;
     }
     backgroundRender(spriteBg);
-    board->draw_board(rend);
-    board->printInfosToScreen(rend);
+
+    board1->draw_board(rend);
+    board1->printInfosToScreen(rend);
+    if (board2 != nullptr)
+    {
+        board2->draw_board(rend);
+        board2->printInfosToScreen(rend);
+    }
+
     if (isPaused)
         drawPauseScreen();
-    SDL_RenderPresent(rend); /* show the result on the screen */
-    board->freeScoreText();
+
+    SDL_RenderPresent(rend); 
+
+    board1->freeScoreText();
+    if (board2 != nullptr)
+        board2->freeScoreText();
 }
 
-/***
- *Ecris le texte d'affichage de l'option dans un buffer 
- ***/
 void WindowSurface::textMenuInfos(menuInfo infos)
 {
     switch (infos)
@@ -84,7 +105,7 @@ void WindowSurface::textMenuInfos(menuInfo infos)
         snprintf(menuMsg, 100, "QUIT");
         break;
     case COPYRIGHT:
-        snprintf(menuMsg, 100, "MaADE By Hofmann Michael AND Berthault Dylan");
+        snprintf(menuMsg, 100, "MADE By Hofmann Michael AND Berthault Dylan");
         break;
     case PLAY:
         snprintf(menuMsg, 100, "PLAY");
@@ -101,29 +122,39 @@ void WindowSurface::textMenuInfos(menuInfo infos)
 
 void WindowSurface::setPositionInfos(menuInfo infos)
 {
-    /*laisser copyright en premier dans la liste des affichages
-    de boutons et pas à la fin sinon les clikc bug je ne sais pk*/
+    int win_w;
+    int win_h;
+
+    SDL_GetWindowSize(this->pWindow, &win_w, &win_h);
+
+    pauseRect->h = win_h / 3;
+    pauseRect->w = win_w / 2;
+    pauseRect->y = win_h / 2 - pauseRect->h / 2;
+    pauseRect->x = win_w / 2 - pauseRect->w / 2;
+
     if (infos != COPYRIGHT)
     {
         positionMenuInfos->w = pauseRect->w / 2;
         positionMenuInfos->h = pauseRect->h / 7;
         positionMenuInfos->x = pauseRect->x + (pauseRect->w / 2 - positionMenuInfos->w / 2);
         if (infos > COPYRIGHT)
-            positionMenuInfos->y = pauseRect->h + int(infos) * (positionMenuInfos->h + pauseRect->h / 7);
+            positionMenuInfos->y = pauseRect->h + int(infos) * (positionMenuInfos->h + pauseRect->h / 5);
         else
             positionMenuInfos->y = pauseRect->h + (int(infos) + 1) * (positionMenuInfos->h + pauseRect->h / 7);
         return;
     }
-    positionMenuInfos->w = WIN_W / 2;
+    positionMenuInfos->w = win_w / 2;
     positionMenuInfos->h = pauseRect->h / 7;
-    positionMenuInfos->x = WIN_W / 2;
-    positionMenuInfos->y = WIN_H - positionMenuInfos->h;
+    positionMenuInfos->x = win_w / 2;
+    positionMenuInfos->y = win_h - positionMenuInfos->h;
 }
-// affiche le grand rectangle du mode pause
+
 void WindowSurface::drawBackgroundPauseScreen()
 {
     SDL_SetRenderDrawColor(rend, 213, 213, 213, 255);
     SDL_RenderFillRect(rend, pauseRect);
+    SDL_SetRenderDrawColor(rend, 100, 100, 100, 255);
+    SDL_RenderDrawRect(rend, pauseRect);
 }
 
 void WindowSurface::drawButtonsPauseScreen()
@@ -135,16 +166,15 @@ void WindowSurface::drawButtonsPauseScreen()
         setPositionInfos(infos);
         textButtonTexture = SDL_CreateTextureFromSurface(rend, textButtonSurface);
 
-        SDL_SetRenderDrawColor(rend, 213, 213, 213, 255); // background of text
+        SDL_SetRenderDrawColor(rend, 213, 213, 213, 255); 
         SDL_RenderFillRect(rend, positionMenuInfos);
-        SDL_SetRenderDrawColor(rend, 150, 150, 150, 255); //contour du menu
+        SDL_SetRenderDrawColor(rend, 150, 150, 150, 255);
         SDL_RenderDrawRect(rend, positionMenuInfos);
 
         SDL_RenderCopy(rend, textButtonTexture, NULL, positionMenuInfos);
     }
 }
 
-// Affiche les différents boutons
 void WindowSurface::drawPauseScreen()
 {
     drawBackgroundPauseScreen();
@@ -153,16 +183,13 @@ void WindowSurface::drawPauseScreen()
 
 bool WindowSurface::xInsideResumeButton(int x)
 {
-    //printf("valeur x: %i, valeur du x à dépasser %i, valeur width position menu infos : %i\n", x, positionMenuInfos->x, positionMenuInfos->w);
     return x > positionMenuInfos->x && x < positionMenuInfos->x + positionMenuInfos->w ? true : false;
 }
 
 bool WindowSurface::yInsideResumeButton(int y, menuInfo infosM)
 {
-    // printf("\nvaleur infoM dans me insideY que l'on test%i\n", int(infosM));
-    // printf("valeur y: %i, valeur du y à dépasser %i, valeur height position menu infos : %i\n", y, positionMenuInfos->y, positionMenuInfos->h);
     if (int(infosM) > COPYRIGHT)
-        return (y > (pauseRect->h + (int(infosM)) * (positionMenuInfos->h + pauseRect->h / 7)) && (y < (pauseRect->h + (int(infosM)) * (positionMenuInfos->h + pauseRect->h / 7) + positionMenuInfos->h))) ? true : false;
+        return (y > (pauseRect->h + (int(infosM)) * (positionMenuInfos->h + pauseRect->h / 5)) && (y < (pauseRect->h + (int(infosM)) * (positionMenuInfos->h + pauseRect->h / 5) + positionMenuInfos->h))) ? true : false;
     return (y > (pauseRect->h + (int(infosM) + 1) * (positionMenuInfos->h + pauseRect->h / 7)) && (y < (pauseRect->h + (int(infosM) + 1) * (positionMenuInfos->h + pauseRect->h / 7) + positionMenuInfos->h))) ? true : false;
 }
 
@@ -173,7 +200,6 @@ bool WindowSurface::isInsideResumeButtom(int x, int y, menuInfo infosM)
 
 void WindowSurface::drawBackgroundMenuScreen()
 {
-    //background light white
     SDL_Rect menuBg;
     menuBg.x = 0;
     menuBg.y = 0;
@@ -184,9 +210,8 @@ void WindowSurface::drawBackgroundMenuScreen()
     SDL_RenderFillRect(rend, &menuBg);
     SDL_RenderDrawRect(rend, &menuBg);
 
-    //IMAGE
     SDL_Rect srcMenuBg = {128, 57, 568, 198};
-    Bg = SDL_CreateTextureFromSurface(rend, menuBackgroundSprite); // récupère la surface du sprite en tant que texture
+    Bg = SDL_CreateTextureFromSurface(rend, menuBackgroundSprite); 
     if (Bg == nullptr)
         printf("error creation texture\n");
 
@@ -196,14 +221,14 @@ void WindowSurface::drawBackgroundMenuScreen()
 
 void WindowSurface::drawButtonsMenuScreen()
 {
-    for (menuInfo infos = COPYRIGHT; infos < 6; infos = menuInfo(int(infos) + 1)) // si je met 6 ici yaura un bug pour l'affichaeg de IA
+    for (menuInfo infos = COPYRIGHT; infos < 6; infos = menuInfo(int(infos) + 1))
     {
         textMenuInfos(infos);
         textButtonSurface = TTF_RenderText_Solid(police, menuMsg, colorPolice);
         setPositionInfos(infos);
         textButtonTexture = SDL_CreateTextureFromSurface(rend, textButtonSurface);
 
-        SDL_SetRenderDrawColor(rend, 150, 150, 150, 255); // background of text
+        SDL_SetRenderDrawColor(rend, 150, 150, 150, 255); 
         SDL_RenderDrawRect(rend, positionMenuInfos);
         SDL_RenderCopy(rend, textButtonTexture, NULL, positionMenuInfos);
     }

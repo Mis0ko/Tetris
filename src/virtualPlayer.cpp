@@ -3,11 +3,14 @@
 
 virtualPlayer::virtualPlayer(Board *board) : b(board)
 {
-    direction = NO_MOVE;
-    pos = (posTetr *)malloc(sizeof(posTetr)); // cast explicite sur malloc car cpp fait des siennes en compilant avec g++
-    pos->x = 0;
-    pos->nbUp = 0;
-    pos->value = 0;
+    pos = (posTetr*)malloc(sizeof(posTetr));
+    int best_pos_tetr_x = 0;
+    int best_plusbas = -1;
+    int best_numrot = 0;
+    int nbTrouMin = 19;
+    int best_score = 0;
+    bool IsFirst = true;
+    bool IsHold = false;
 };
 
 void virtualPlayer::sliceFarLeft()
@@ -19,101 +22,189 @@ void virtualPlayer::sliceFarLeft()
     }
     return;
 }
-/*** Check la meilleure orientation et 
- * renvoie le nb de fois qu'il faut
- * appeler la fonction UP sur la piece 
- * pour l'orientation
- * ***/
-void virtualPlayer::checkBestOrientation(int cptSlideRight)
-{
-    int score = 0;
-    MOV_DIRECTION dir = b->direction;
 
-    b->update_direction(UP);
+int virtualPlayer::NbTrou()
+{
+    int nbtrou = 0;
+
     for (int i = 0; i < 4; i++)
     {
-        if (i)
+        for (int j = 0; j < 4; j++)
         {
-            b->moveCurrentPiece();
+            if (b->currentPiece->current_tetr[i][j])
+            {
+                int ind_i = i;
+                while (b->LookDown(ind_i, j) == 0)
+                {
+                    nbtrou += 1;
+                    ind_i++;
+                }
+            }
         }
-        //b->deletePieceFromBackground(); //on a pas besoin de la print avant donc pas besoin de la supprimé
+    }
+    return nbtrou;
+}
+
+int virtualPlayer::PlusBas()
+{
+    int plusbas = -1;
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            if (b->currentPiece->current_tetr[i][j] != 0 && b->currentPiece->y - ORIGIN_Y + i > plusbas)
+            {
+                plusbas = b->currentPiece->y - ORIGIN_Y + i;
+            }
+        }
+    }
+    return plusbas;
+}
+
+void virtualPlayer::checkBestPosition(bool IsPieceHold)
+{
+    int nbTrou = 0;
+    int plusbas = 0;
+    int score = 0;
+    int ind_x = 0;
+
+    sliceFarLeft();
+
+    b->GoFarDown();
+    b->print_piece_to_background();
+
+    nbTrou = NbTrou();
+    plusbas = PlusBas();
+    
+    score = b->totalScore + b->computeScore(b->nbLineFull());
+    if (score > best_score)
+    {
+        best_score = score;
+        nbTrouMin = nbTrou;
+        best_numrot = b->currentPiece->get_num_rot();
+        best_pos_tetr_x = ind_x;
+        best_plusbas = plusbas;
+        IsHold = IsPieceHold;
+    }
+
+    else if (score == best_score && plusbas > best_plusbas)
+    {
+        nbTrouMin = nbTrou;
+        best_numrot = b->currentPiece->get_num_rot();
+        best_pos_tetr_x = ind_x;
+        best_plusbas = plusbas;
+        IsHold = IsPieceHold;
+    }
+
+    else if (score == best_score && plusbas == best_plusbas && nbTrou < nbTrouMin)
+    {
+        nbTrouMin = nbTrou;
+        best_numrot = b->currentPiece->get_num_rot();
+        best_pos_tetr_x = ind_x;
+        IsHold = IsPieceHold;
+    }
+
+    b->deletePieceFromBackground();
+    b->currentPiece->set_coord(b->currentPiece->x, 3);
+
+    b->update_direction(RIGHT);
+
+    while (!b->DetectCollision()) 
+    {
+        b->moveCurrentPiece();
+        ind_x++;
         b->GoFarDown();
         b->print_piece_to_background();
-        printf("avant de calculer le score\n");
-        b->print_board();
+
+        nbTrou = NbTrou();
+        plusbas = PlusBas();
 
         score = b->totalScore + b->computeScore(b->nbLineFull());
-        printf("pour le tableau précédent, Score numero %i est egal à %i\n", i, score);
-        if (score > pos->value)
+        if (score > best_score)
         {
-            printf("eyaaaa");
-            pos->value = score;
-            pos->nbUp = i;
-            pos->x = cptSlideRight;
+            best_score = score;
+            nbTrouMin = nbTrou;
+            best_numrot = b->currentPiece->get_num_rot();
+            best_pos_tetr_x = ind_x;
+            best_plusbas = plusbas;
+            IsHold = IsPieceHold;
+        }
+
+        else if (score == best_score && nbTrou < nbTrouMin)
+        {
+            nbTrouMin = nbTrou;
+            best_numrot = b->currentPiece->get_num_rot();
+            best_pos_tetr_x = ind_x;
+            best_plusbas = plusbas;
+            IsHold = IsPieceHold;
+        }
+
+        else if (score == best_score && nbTrou == nbTrouMin && plusbas > best_plusbas)
+        {
+            best_numrot = b->currentPiece->get_num_rot();
+            best_pos_tetr_x = ind_x;
+            best_plusbas = plusbas;
+            IsHold = IsPieceHold;
         }
 
         b->deletePieceFromBackground();
-        b->GoFarUp();
-        //b->print_piece_to_background();
+        b->currentPiece->set_coord(b->currentPiece->x, 3);
+        b->update_direction(RIGHT);
     }
-    b->moveCurrentPiece(); //pour tourner 4 fois et revenir à la phase de depart
-    b->direction = dir;
-    //double monx = b->currentPiece->x - ORIGIN_X;
-    printf("pour ce x : %i, ce nbUp %i, on a la meilleure config a un score de %i\n", pos->x, pos->nbUp, pos->value);
     return;
 }
 
 void virtualPlayer::chkAllCombinaison()
 {
-    if (!b->currentPiece->getStateFinished())
+    bool IsPieceHold = false;
+
+    if (IsFirst == true)
     {
-        MOV_DIRECTION dir = b->direction;
-        bool EndHorizontal = false;
-        int cptSlideRight = 0;
-        int idxMaxScorePosX = 0, idxMaxScoreOrientation = 0;
-        int score = 0, maxScore = 0;
-
-        sliceFarLeft();
-        b->update_direction(RIGHT);
-
-        //On parcourt toutes les possibilités de gauche à droite
-        checkBestOrientation(cptSlideRight);
-        while (!b->DetectCollision()) // detection quand on touche le coté de droite
-        {
-            cptSlideRight++; //pour garder en memoire de cb on s'est déplacé
-            b->moveCurrentPiece();
-            checkBestOrientation(cptSlideRight);
-        }
-
-        //on repart de gauche et remet la pièce au score max
-        sliceFarLeft();
-        b->update_direction(RIGHT);
-        for (int j = 0; j < pos->x; j++)
-        {
-            b->moveCurrentPiece();
-        }
-
-        b->update_direction(UP);
-        for (int j = 0; j < pos->nbUp; j++)
-        {
-            b->moveCurrentPiece();
-        }
-
-        b->update_direction(FAR_DOWN);
-        b->moveCurrentPiece();
-        b->currentPiece->set_finished();
-        printf("les valeurs max: \n");
-        printf("score : %i\n", pos->value);
-        printf("valeur x : %i\n", pos->x);
-        printf("nbUp : %i\n", pos->nbUp);
-        printf("fin de chkAllCombinaison\n");
-        b->update_direction(NO_MOVE);
+        b->changePiece();
+        IsFirst == false;
+        return;
     }
-    // sliceFarLeft();
-    // b->update_direction(RIGHT);
-    // for (int i = 0; i < cptSlideRight; i++)
-    // {
-    //     b->moveCurrentPiece();
-    // }
-    // b->direction = dir;
+    for (int j = 0; j < 2; j++)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            checkBestPosition(IsPieceHold);
+            b->update_direction(ROT_R);
+            b->moveCurrentPiece();
+        }
+        b->changePiece();    
+        IsPieceHold = !IsPieceHold;
+    }
+
+    if (IsHold == false)
+    {
+        b->set_nbHold(0);
+        b->changePiece();
+    }
+
+    IsHold = false;
+
+    nbTrouMin = 19;
+    best_plusbas = -1;
+
+    while (b->currentPiece->get_num_rot() != best_numrot)
+    {
+        b->update_direction(ROT_R);
+        b->moveCurrentPiece();
+    }
+
+    sliceFarLeft();
+    b->update_direction(RIGHT);
+    for (int j = 0; j < best_pos_tetr_x; j++)
+    {
+        b->moveCurrentPiece();
+    }
+
+    b->GoFarDown();
+    b->set_IsOut(false);
+    b->currentPiece->set_finished();
+    b->update_direction(NO_MOVE);
+
+    return;
 }
