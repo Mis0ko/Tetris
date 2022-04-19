@@ -1,19 +1,21 @@
-Pre requis :
+# Tetris Game
+By [Michael Hofmann](https://github.com/Mis0ko), [Dylan Berthault](https://github.com/Quwazar) <br/>
+Last update : 04/17/2021.
 
-sudo apt-get install libsdl2-dev
-sudo apt-get install libsdl-mixer1.2
-sudo apt-get install libsdl2-ttf-dev
-sudo apt-get install libsdl2-image-2.0-0
-sudo apt-get install libsdl2-mixer-dev
-sudo apt-get install libsdl2-image-dev
+<p align="center">  
+ <img src="Screenshots/mainScreen.png"/>
+</p>
 
+## pre-requisites
 
+`sudo apt-get install libsdl2-dev` <br/>
+`sudo apt-get install libsdl-mixer1.2` <br/>
+`sudo apt-get install libsdl2-ttf-dev` <br/>
+`sudo apt-get install libsdl2-image-2.0-0` <br/>
+`sudo apt-get install libsdl2-mixer-dev` <br/>
+`sudo apt-get install libsdl2-image-dev` <br/>
 
-Launch the Game:
+## Launch the Game:
 
-make 
-./tetris
-
-
-Game Created by Hofmann Michael and Berthault Dylan
-2020
+`make`<br/> 
+`./tetris`<br/>
